@@ -38,12 +38,12 @@ async function main() {
         for (let match of query.queue.matchAll(bag)) {
             if (match[1]) {
                 let count = parseInt(match[2], 10) || 1;
-                queue.add_bag(match[1], count);
+                queue.add_bag(match[1], count);console.log(match[1], count)
             } else if (match[3]) {
                 let count = parseInt(match[4], 10) || 1;
-                queue.add_bag("IJLOSTZ", count);
+                queue.add_bag("IJLOSTZ", count);console.log("IJLOSTZ", count)
             } else {
-                queue.add_shape(match[0]);
+                queue.add_shape(match[0]);console.log(match[0])
             }
         }
 

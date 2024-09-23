@@ -285,7 +285,8 @@
             } else {
                 solutions.innerHTML = "";
             }
-
+            wasm_bindgen("./pkg/gomen_bg.wasm");
+            let SolSet = new Set();
             for (const soln of solns) {
                 if (count == 0) { break; }
                 count--;
@@ -295,12 +296,76 @@
                 let link = document.createElement("a");
                 link.href = "./solution-info.html?s=" + id;
                 link.target = "_blank";
-
+                // change this part to show the solution differently
+                var info = wasm_bindgen.solution_info(id).split("|"); //e.g. ["GGGGGGGTLLGGGGGGGTTLGGGGGGGTSSGGGGGGGSSL", "STL", "LST,SLT,STL,TSL"]
+                var [board, noHoldSol, withHoldSol] = info
+                if (board.includes('_')){
+                    continue
+                }
+                if (hold.checked) {
+                    withHoldSol.split(",").forEach(move => SolSet.add(move));
+                } else {
+                    noHoldSol.split(",").forEach(move => SolSet.add(move));
+                }
                 link.appendChild(new MinoBoard(cells));
                 solutions.appendChild(link);
             }
-        }
+            
+            let allPatterns = genQueue();
+            let summary = document.createElement("div");
+            let solvePatterns = allPatterns.filter(reg => SolSet.has(reg))
+            let unsolvePatterns = allPatterns.filter(reg => !SolSet.has(reg))
+            console.log(allPatterns, solvePatterns, unsolvePatterns)
+            summary.innerText = `successful rate: ${solvePatterns.length}/${allPatterns.length} `;
+            solutions.insertBefore(summary, solutions.firstChild);
+            
 
+        }
+        function genQueue(){
+            let bag = /[ILJOSTZ]|\[([ILJOSTZ]+)\](\d*)|(\*)(\d*)/g;
+            let patterns = ['']
+            for (let match of queue.value.matchAll(bag)) {
+                if (match[1]) {
+                    let count = parseInt(match[2], 10) || 1;
+                    patterns = combineList(patterns, getPermutations(match[1], count));console.log(match[1], count)
+                } else if (match[3]) {
+                    let count = parseInt(match[4], 10) || 1;
+                    patterns = combineList(patterns, getPermutations("IJLOSTZ", count));console.log("IJLOSTZ", count)
+                } else {
+                    patterns = combineList(patterns, match[0]);console.log(match[0])
+                }
+            }
+            return patterns
+        }
+        function combineList(list1,list2){
+            let result = [];
+            for (let i of list1) {
+                for (let j of list2) {
+                    result.push(i + j);
+                }
+            }
+            return result
+        }
+        function getPermutations(arr, size) {
+            const result = [];
+
+            function permute(current, remaining) {
+                if (current.length === size) {
+                    result.push(current.join('')); // Join the array into a string
+                    return;
+                }
+
+                for (let i = 0; i < remaining.length; i++) {
+                    permute(
+                        [...current, remaining[i]],
+                        [...remaining.slice(0, i), ...remaining.slice(i + 1)]
+                    );
+                }
+            }
+
+            permute([], arr);
+            return result;
+        }
         function getGarbage() {
             let garbage = 0n;
             let garbageCount = 0;
