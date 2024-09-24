@@ -179,6 +179,7 @@
             <input type="text" id="queue">
             <div id="queue-errors" class="error"></div>
             <label><input id="hold" type="checkbox" checked> Use hold</label>
+            <label><input id="minimal" type="checkbox" checked> Show minimal solution only</label>
         </div>
 
         <div class="label">Rotation system</div>
@@ -208,6 +209,7 @@
         let queue = document.getElementById("queue");
         let queueErrors = document.getElementById("queue-errors");
         let hold = document.getElementById("hold");
+        let minimal = document.getElementById("minimal");
         let physics = document.getElementById("physics-form").physics;
         let progress = document.getElementById("progress");
         let solutions = document.getElementById("solutions");
@@ -590,8 +592,10 @@
             
             
             var [solvePatterns, unsolvePatterns] = classifyPatterns(allPatterns, withHoldSolSet, noHoldSolSet)
-            var solvePatternsDict = classifyPatternsDict(allPatterns,withHoldSolDict,noHoldSolDict)// key as board, value as list[patterns]
-            var minimalBoard = minialPatterns(solvePatternsDict)
+            if (minimal.checked){
+                var solvePatternsDict = classifyPatternsDict(allPatterns,withHoldSolDict,noHoldSolDict)// key as board, value as list[patterns]
+                var minimalBoard = minimalPatterns(solvePatternsDict)
+            }
             //minimal solution: console.log(minimalBoard)
             for (const soln of solns) {
                 
@@ -599,7 +603,7 @@
 
                 let [cells, id] = soln.split("|");
                 let [board, noHoldSol, withHoldSol] = wasm_bindgen.solution_info(id).split("|");
-                if (! minimalBoard.includes(board)) continue
+                if (minimal.checked && ! minimalBoard.includes(board)) continue
                 if (count == 0) { break; }
                 count--;
                 
@@ -613,8 +617,8 @@
            
             let summary = document.createElement("div");
             let successfulRate = Math.round(solvePatterns.length/allPatterns.length * 100) + '%'
-            summary.innerText = `successful rate: ${solvePatterns.length}/${allPatterns.length} = ${successfulRate}
-            minial solutions: ${minimalBoard.length}`;
+            summary.innerText = `successful rate: ${solvePatterns.length}/${allPatterns.length} = ${successfulRate}\n`;
+            (minimal.checked)? summary.innerText += `\nMinimal number of solutions: ${minimalBoard.length}` : summary.innerText += `\nTotal number of solutions: ${solns.length}`
             solutions.insertBefore(summary, solutions.firstChild);
             
 
@@ -687,7 +691,7 @@
             }
             return solvePatternsDict
         }
-        function minialPatterns(solvePatternsDict){
+        function minimalPatterns(solvePatternsDict){
             var usedPatterns = new Set()
             var usedBoard = []
             
@@ -704,7 +708,7 @@
                     }
                     
                 }
-                //console.log(bestBoard)
+                
                 if (bestBoard === '') return usedBoard
                 usedPatterns = usedPatterns.union(solvePatternsDict[bestBoard])
                 usedBoard.push(bestBoard)
@@ -845,7 +849,7 @@
         });
 
         hold.addEventListener("input", (ev) => doSolve());
-
+        minimal.addEventListener("input", (ev) => doSolve());
         document.getElementById("physics-form")
             .addEventListener("input", (ev) => doSolve());
 
