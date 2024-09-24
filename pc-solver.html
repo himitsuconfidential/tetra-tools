@@ -569,34 +569,57 @@
                 solutions.innerHTML = "";
             }
            
-            for (const soln of solns) {
-                if (count == 0) { break; }
-                count--;
-
-                let [cells, id] = soln.split("|");
-
-                let link = document.createElement("a");
-                link.href = "./solution-info.html?s=" + id;
-                link.target = "_blank";
-                link.appendChild(new MinoBoard(cells));
-                solutions.appendChild(link);
-            }
+            
             // added this part to cal successful rate
             wasm_bindgen("./pkg/gomen_bg.wasm");
             let withHoldSolSet = new Set();
             let noHoldSolSet = new Set();
+            let withHoldSolDict = {};
+            let noHoldSolDict = {};
             for (const soln of solns) {
                 let [cells, id] = soln.split("|");
-                var [board, noHoldSol, withHoldSol] = wasm_bindgen.solution_info(id).split("|"); //e.g. ["GGGGGGGTLLGGGGGGGTTLGGGGGGGTSSGGGGGGGSSL", "STL", "LST,SLT,STL,TSL"]
+                let [board, noHoldSol, withHoldSol] = wasm_bindgen.solution_info(id).split("|"); //e.g. ["GGGGGGGTLLGGGGGGGTTLGGGGGGGTSSGGGGGGGSSL", "STL", "LST,SLT,STL,TSL"]
                 if (board.includes('_')) continue
-                
-                withHoldSol.split(",").forEach(move => withHoldSolSet.add(move));
-                noHoldSol.split(",").forEach(move => noHoldSolSet.add(move));
+                withHoldSolDict[board] = new Set()
+                noHoldSolDict[board] = new Set()
+                withHoldSol.split(",").forEach(move => {withHoldSolSet.add(move); withHoldSolDict[board].add(move)});
+                noHoldSol.split(",").forEach(move => {noHoldSolSet.add(move); noHoldSolDict[board].add(move)});
             }
 
             let allPatterns = genQueue();
             
             
+            var [solvePatterns, unsolvePatterns] = classifyPatterns(allPatterns, withHoldSolSet, noHoldSolSet)
+            var solvePatternsDict = classifyPatternsDict(allPatterns,withHoldSolDict,noHoldSolDict)// key as board, value as list[patterns]
+            var minimalBoard = minialPatterns(solvePatternsDict)
+            //minimal solution: console.log(minimalBoard)
+            for (const soln of solns) {
+                
+                
+
+                let [cells, id] = soln.split("|");
+                let [board, noHoldSol, withHoldSol] = wasm_bindgen.solution_info(id).split("|");
+                if (! minimalBoard.includes(board)) continue
+                if (count == 0) { break; }
+                count--;
+                
+                let link = document.createElement("a");
+                link.href = "./solution-info.html?s=" + id;
+                link.target = "_blank";
+                link.appendChild(new MinoBoard(cells));
+                solutions.appendChild(link);
+                
+            }
+           
+            let summary = document.createElement("div");
+            let successfulRate = Math.round(solvePatterns.length/allPatterns.length * 100) + '%'
+            summary.innerText = `successful rate: ${solvePatterns.length}/${allPatterns.length} = ${successfulRate}
+            minial solutions: ${minimalBoard.length}`;
+            solutions.insertBefore(summary, solutions.firstChild);
+            
+
+        }
+        function classifyPatterns(allPatterns, withHoldSolSet, noHoldSolSet){
             let solvePatterns = []
             let unsolvePatterns = []
             for (let pattern of allPatterns){
@@ -629,12 +652,64 @@
                 }
 
             }
-            //console.log(allPatterns, solvePatterns, unsolvePatterns)
-            let summary = document.createElement("div");
-            summary.innerText = `successful rate: ${solvePatterns.length}/${allPatterns.length} `;
-            solutions.insertBefore(summary, solutions.firstChild);
-            //
+            return [solvePatterns, unsolvePatterns]
+        }
+        function classifyPatternsDict(allPatterns, withHoldSolDict, noHoldSolDict){
+            let solvePatternsDict = {}
+            for (let board in withHoldSolDict){
+                solvePatternsDict[board] = new Set()
+                for (let pattern of allPatterns){
+                    if (withHoldSolDict[board].has(pattern)){
+                        solvePatternsDict[board].add(pattern)
+                        continue
+                    }
+                    var solSize = 0
+                    for (let i of noHoldSolDict[board]){
+                        solSize = i.length
+                        break
+                    }
+                    var patternSize = pattern.length
+                    if (patternSize - solSize == 1){
+                        for (let seq of hold_table[patternSize]){
+                            var reorderPattern = ''
+                            for (let num of seq){
+                                reorderPattern += pattern[num]
+                            }
+                            if (noHoldSolDict[board].has(reorderPattern)){
+                                solvePatternsDict[board].add(pattern)
+                                
+                            }
+                        }
+                        
+                    }
 
+                }
+            }
+            return solvePatternsDict
+        }
+        function minialPatterns(solvePatternsDict){
+            var usedPatterns = new Set()
+            var usedBoard = []
+            
+            var bestScore = 0
+            
+            while (true){
+                var bestBoard = ''
+                for (let board in solvePatternsDict){
+                    let pattern = solvePatternsDict[board]
+                    let currentScore = usedPatterns.union(pattern).size
+                    if (currentScore > bestScore){
+                        bestScore = currentScore
+                        bestBoard = board
+                    }
+                    
+                }
+                //console.log(bestBoard)
+                if (bestBoard === '') return usedBoard
+                usedPatterns = usedPatterns.union(solvePatternsDict[bestBoard])
+                usedBoard.push(bestBoard)
+            }
+            return usedBoard
         }
         function genQueue(){
             let bag = /[ILJOSTZ]|\[([ILJOSTZ]+)\](\d*)|(\*)(\d*)/g;
